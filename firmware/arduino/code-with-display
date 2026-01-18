@@ -1,90 +1,122 @@
-#include <Wire.h> 
+#include <Wire.h>
 #include <LiquidCrystal_I2C.h>
+#include <PMS.h>
 
-LiquidCrystal_I2C lcd(0x27, 16, 2);
-const int potPin = 34;
+// ---------- 1. Objects & Pins ----------
+LiquidCrystal_I2C lcd(0x27, 16, 2); 
 
-// --- DUMMY VARIABLES (Replace these with your real sensor data later) ---
-int pm1 = 5;
-int pm25 = 12;
-int pm10 = 20;
-int coLevel = 45;       // PPM
-float temp = 24.5;      // Celsius
-int humidity = 60;      // Percent
-int batteryLevel = 85;  // Percent
+HardwareSerial pmsSerial(2); 
+PMS pms(pmsSerial);
+PMS::DATA data;
+
+const int potPin = 34; 
+
+// ---------- 2. Calibration Coefficients ----------
+const float PM1_A  = 0.411; const float PM1_B  = 3.54;
+const float PM25_A = 0.342; const float PM25_B = 6.11;
+const float PM10_A = 1.87;  const float PM10_B = -45.44;
+
+// Global variables for sensor data
+int pm1_final = 0;
+int pm25_final = 0;
+int pm10_final = 0;
+
+// Dummy variables (Simulated)
+int coLevel = 45;       
+float temp = 24.5;      
+int humidity = 60;      
+int batteryLevel = 85; 
+
+// ---------- 3. Timers (No Delays!) ----------
+unsigned long lastLcdUpdate = 0;
+const int LCD_INTERVAL = 250; // Update screen every 250ms
 
 void setup() {
+  Serial.begin(115200);
+  pmsSerial.begin(9600, SERIAL_8N1, 18, 19);
+
+  Wire.begin(21, 22);
   lcd.init();
   lcd.backlight();
-  Serial.begin(115200);
+  lcd.clear();
 }
 
 void loop() {
-  int val = analogRead(potPin);
+  // --- TASK 1: READ SENSOR (Runs every single cycle) ---
+  // The pms.read() function must be called as fast as possible
+  if (pms.read(data)) {
+    // We only recalculate math when new data actually arrives
+    float c1  = PM1_A  * data.PM_AE_UG_1_0 + PM1_B;
+    float c25 = PM25_A * data.PM_AE_UG_2_5 + PM25_B;
+    float c10 = PM10_A * data.PM_AE_UG_10_0 + PM10_B;
 
-  // We check which zone we are in
-  // We use a separate function for each screen to keep the loop clean
-  
-  // --- ZONE 1: PM Values (0 - 1000) ---
-  if (val < 1000) {
-    displayPM(pm1, pm25, pm10);
-  }
-  
-  // --- ZONE 2: CO Level (1000 - 2000) ---
-  else if (val >= 1000 && val < 2000) {
-    displayCO(coLevel);
-  }
-  
-  // --- ZONE 3: Temp & Humidity (2000 - 3000) ---
-  else if (val >= 2000 && val < 3000) {
-    displayTempHum(temp, humidity);
-  }
-  
-  // --- ZONE 4: Battery Status (3000 - 4095) ---
-  else {
-    displayBattery(batteryLevel);
+    // Store in global variables immediately
+    pm1_final  = (c1 < 0) ? 0 : (int)c1;
+    pm25_final = (c25 < 0) ? 0 : (int)c25;
+    pm10_final = (c10 < 0) ? 0 : (int)c10;
   }
 
-  delay(200); // Update speed
+  // --- TASK 2: UPDATE LCD (Runs every 250ms) ---
+  unsigned long currentMillis = millis();
+  
+  if (currentMillis - lastLcdUpdate >= LCD_INTERVAL) {
+    // Save the last time we updated
+    lastLcdUpdate = currentMillis;
+
+    // Read potentiometer
+    int potValue = analogRead(potPin);
+
+    // Decide which screen to show
+    if (potValue < 1000) {
+      displayPM(pm1_final, pm25_final, pm10_final);
+    }
+    else if (potValue >= 1000 && potValue < 2000) {
+      displayCO(coLevel);
+    }
+    else if (potValue >= 2000 && potValue < 3000) {
+      displayTempHum(temp, humidity);
+    }
+    else {
+      displayBattery(batteryLevel);
+    }
+  }
 }
 
-// --- HELPER FUNCTIONS FOR DISPLAY ---
+// ==========================================
+//           DISPLAY HELPER FUNCTIONS
+// ==========================================
 
 void displayPM(int p1, int p25, int p10) {
-  // Layout: 
-  // P1: 5   P2.5: 12
-  // PM10: 20
+  // Only printing numbers and padding spaces ensures values update 
+  // without clearing the whole screen (which causes flickering)
   
   lcd.setCursor(0, 0);
   lcd.print("P1:"); lcd.print(p1); 
-  lcd.print(" P2.5:"); lcd.print(p25); lcd.print("  "); // Extra spaces to clear
+  lcd.print(" P2:"); lcd.print(p25); 
+  lcd.print("   "); 
 
   lcd.setCursor(0, 1);
-  lcd.print("PM10: "); lcd.print(p10);
-  lcd.print(" ug/m3    "); // Fill rest of line with spaces
+  lcd.print("P10:"); lcd.print(p10);
+  lcd.print(" ug/m3    "); 
 }
 
 void displayCO(int co) {
   lcd.setCursor(0, 0);
-  lcd.print("CO Measurement: ");
-  
+  lcd.print("CO Level:       "); // Title
   lcd.setCursor(0, 1);
-  lcd.print(co); 
-  lcd.print(" PPM          "); // Spaces clear previous text (like 'ug/m3')
+  lcd.print(co); lcd.print(" PPM          "); 
 }
 
 void displayTempHum(float t, int h) {
   lcd.setCursor(0, 0);
   lcd.print("Temp: "); lcd.print(t, 1); lcd.print("C      ");
-  
   lcd.setCursor(0, 1);
   lcd.print("Hum:  "); lcd.print(h); lcd.print("%       ");
 }
 
 void displayBattery(int bat) {
   lcd.setCursor(0, 0);
-  lcd.print("System Battery: ");
-  
+  lcd.print("Battery Status: ");
   lcd.setCursor(0, 1);
   lcd.print("Level: "); lcd.print(bat); lcd.print("%      ");
 }
