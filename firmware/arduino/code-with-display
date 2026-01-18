@@ -1,1 +1,90 @@
+#include <Wire.h> 
+#include <LiquidCrystal_I2C.h>
 
+LiquidCrystal_I2C lcd(0x27, 16, 2);
+const int potPin = 34;
+
+// --- DUMMY VARIABLES (Replace these with your real sensor data later) ---
+int pm1 = 5;
+int pm25 = 12;
+int pm10 = 20;
+int coLevel = 45;       // PPM
+float temp = 24.5;      // Celsius
+int humidity = 60;      // Percent
+int batteryLevel = 85;  // Percent
+
+void setup() {
+  lcd.init();
+  lcd.backlight();
+  Serial.begin(115200);
+}
+
+void loop() {
+  int val = analogRead(potPin);
+
+  // We check which zone we are in
+  // We use a separate function for each screen to keep the loop clean
+  
+  // --- ZONE 1: PM Values (0 - 1000) ---
+  if (val < 1000) {
+    displayPM(pm1, pm25, pm10);
+  }
+  
+  // --- ZONE 2: CO Level (1000 - 2000) ---
+  else if (val >= 1000 && val < 2000) {
+    displayCO(coLevel);
+  }
+  
+  // --- ZONE 3: Temp & Humidity (2000 - 3000) ---
+  else if (val >= 2000 && val < 3000) {
+    displayTempHum(temp, humidity);
+  }
+  
+  // --- ZONE 4: Battery Status (3000 - 4095) ---
+  else {
+    displayBattery(batteryLevel);
+  }
+
+  delay(200); // Update speed
+}
+
+// --- HELPER FUNCTIONS FOR DISPLAY ---
+
+void displayPM(int p1, int p25, int p10) {
+  // Layout: 
+  // P1: 5   P2.5: 12
+  // PM10: 20
+  
+  lcd.setCursor(0, 0);
+  lcd.print("P1:"); lcd.print(p1); 
+  lcd.print(" P2.5:"); lcd.print(p25); lcd.print("  "); // Extra spaces to clear
+
+  lcd.setCursor(0, 1);
+  lcd.print("PM10: "); lcd.print(p10);
+  lcd.print(" ug/m3    "); // Fill rest of line with spaces
+}
+
+void displayCO(int co) {
+  lcd.setCursor(0, 0);
+  lcd.print("CO Measurement: ");
+  
+  lcd.setCursor(0, 1);
+  lcd.print(co); 
+  lcd.print(" PPM          "); // Spaces clear previous text (like 'ug/m3')
+}
+
+void displayTempHum(float t, int h) {
+  lcd.setCursor(0, 0);
+  lcd.print("Temp: "); lcd.print(t, 1); lcd.print("C      ");
+  
+  lcd.setCursor(0, 1);
+  lcd.print("Hum:  "); lcd.print(h); lcd.print("%       ");
+}
+
+void displayBattery(int bat) {
+  lcd.setCursor(0, 0);
+  lcd.print("System Battery: ");
+  
+  lcd.setCursor(0, 1);
+  lcd.print("Level: "); lcd.print(bat); lcd.print("%      ");
+}
