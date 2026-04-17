@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>PM Sensor Monitor</title>
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      background: #f4f6f9;
+    }
+
+    /* HEADER */
+    .header {
+      background: #1f2937;
+      color: white;
+      padding: 20px;
+      font-size: 26px;
+      font-weight: bold;
+    }
+
+    .container {
+      padding: 20px;
+    }
+
+    /* CARD STYLE */
+    .card {
+      background: white;
+      border-radius: 10px;
+      padding: 20px;
+      margin: 15px 0;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+
+    .title {
+      font-size: 18px;
+      color: #555;
+    }
+
+    .value {
+      font-size: 40px;
+      font-weight: bold;
+      margin-top: 10px;
+    }
+
+    /* GRID */
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+    }
+
+    /* COLORS */
+    .pm1 { color: #2563eb; }
+    .pm25 { color: #f59e0b; }
+    .pm10 { color: #ef4444; }
+
+    .footer {
+      text-align: center;
+      padding: 20px;
+      color: gray;
+      font-size: 12px;
+    }
+  </style>
+</head>
+
+<body>
+
+<div class="header">
+  🌫️ PM Sensor Dashboard
+</div>
+
+<div class="container">
+
+  <div class="grid">
+
+    <div class="card">
+      <div class="title">PM1.0</div>
+      <div class="value pm1" id="pm1">--</div>
+    </div>
+
+    <div class="card">
+      <div class="title">PM2.5</div>
+      <div class="value pm25" id="pm25">--</div>
+    </div>
+
+    <div class="card">
+      <div class="title">PM10</div>
+      <div class="value pm10" id="pm10">--</div>
+    </div>
+
+  </div>
+
+</div>
+
+
+
+<!-- FIREBASE -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+  import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+
+  const firebaseConfig = {
+    databaseURL: "https://aqi-monitor-db-default-rtdb.asia-southeast1.firebasedatabase.app/"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getDatabase(app);
+
+  function bind(path, id) {
+    onValue(ref(db, path), (snap) => {
+      document.getElementById(id).innerText = snap.val();
+    });
+  }
+
+  bind("pm1", "pm1");
+  bind("pm25", "pm25");
+  bind("pm10", "pm10");
+</script>
+
+</body>
+</html>
